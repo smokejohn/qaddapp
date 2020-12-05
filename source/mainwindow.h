@@ -4,32 +4,30 @@
 #include <QMainWindow>
 #include <QtWidgets>
 
-
-class MainWindow : public QMainWindow
-{
+class MainWindow : public QMainWindow {
     Q_OBJECT;
 
-    public:
-        MainWindow();
+   public:
+    MainWindow();
 
-    public slots:
-        void getBinaryPath();
-        void getIconPath();
-        void getDestPath();
+   public slots:
+    void getBinaryPath();
+    void getIconPath();
+    void getDestPath();
+    void addApp();
 
-    private:
-        QString binaryPath;
-        QString iconPath;
-        QString destPath;
-        QString linkPath;
+   private:
+    QDir *binaryPath;
+    QDir *iconPath;
+    QDir *destPath;
+    QDir *linkPath;
 
-        QLineEdit *leBinary;
-        QLineEdit *leIcon;
-        QLineEdit *leDest;
+    QLineEdit *leBinary;
+    QLineEdit *leIcon;
+    QLineEdit *leDest;
 
-        void createActions();
-        void createInputs();
-
+    void createActions();
+    void createInputs();
 };
 
-#endif //MAINWINDOW_H
+#endif  // MAINWINDOW_H

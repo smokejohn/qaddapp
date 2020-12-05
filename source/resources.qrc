@@ -1,0 +1,7 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+    <file>images/qaddapp_logo_256.png</file>
+    <file>images/qaddapp_icon_64.png</file>
+</qresource>
+</RCC>
