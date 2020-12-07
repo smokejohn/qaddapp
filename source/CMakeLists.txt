@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1 FATAL_ERROR)
 
-project(QAddApp LANGUAGES CXX)
+project(qaddapp LANGUAGES CXX)
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -15,10 +15,12 @@ set(CMAKE_AUTORCC ON)
 
 set(Headers
     mainwindow.h
+    pathinput.h
     )
 
 set(Sources
     mainwindow.cpp
+    pathinput.cpp
     main.cpp
     resources.qrc
     )

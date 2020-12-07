@@ -1,6 +1,7 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#include "pathinput.h"
 #include <QMainWindow>
 #include <QtWidgets>
 
@@ -11,10 +12,10 @@ class MainWindow : public QMainWindow {
     MainWindow();
 
    public slots:
-    void getBinaryPath();
-    void getIconPath();
-    void getDestPath();
+    void enableBinFolder(int state);
     void addApp();
+    void updateBinFolder(const QString &path);
+
 
    private:
     QDir *binaryPath;
@@ -22,12 +23,19 @@ class MainWindow : public QMainWindow {
     QDir *destPath;
     QDir *linkPath;
 
-    QLineEdit *leBinary;
-    QLineEdit *leIcon;
-    QLineEdit *leDest;
+    QComboBox *cbCategory;
+
+    QGroupBox *gbxRelo;
+    QCheckBox *ckbBinFolder;
+    PathInput *piBinary;
+    PathInput *piIcon;
+    PathInput *piDest;
+    PathInput *piBinFolder;
 
     void createActions();
     void createInputs();
+
+    void writeDesktopFile();
 };
 
 #endif  // MAINWINDOW_H

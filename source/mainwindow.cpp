@@ -12,12 +12,7 @@ MainWindow::MainWindow() : QMainWindow() {
     destPath = new QDir(QDir::homePath() + QDir::separator() + ".local");
     linkPath = new QDir("/");
 
-    qDebug() << binaryPath->absolutePath();
-    qDebug() << iconPath->absolutePath();
-    qDebug() << destPath->absolutePath();
-    qDebug() << linkPath->absolutePath();
-
-    resize(650, 400);
+    resize(850, 400);
 
     // populate the menu bar
     createActions();
@@ -36,12 +31,12 @@ void MainWindow::createActions() {
     quitAct->setShortcut(QKeySequence::Quit);
     quitAct->setStatusTip("Quit QAddApp");
 
+    // connecting signal and slot
+    connect(quitAct, &QAction::triggered, this, &QApplication::exit);
+
     // creating about menuitem
     QAction *aboutAct = new QAction("&About", this);
     aboutAct->setStatusTip("About QAddApp");
-
-    // connecting signal and slot
-    connect(quitAct, &QAction::triggered, this, &QApplication::exit);
 
     // adding quit menuitem to menubar
     fileMenu->addAction(quitAct);
@@ -54,47 +49,61 @@ void MainWindow::createInputs() {
 
     // Mainlayout Column
     QVBoxLayout *vboxMain = new QVBoxLayout(inputWidget);
+    vboxMain->setMargin(15);
 
     // Row Binary: Label, Textinput, Browsebutton
-    QHBoxLayout *hboxBinary = new QHBoxLayout;
-    QLabel *lblBinary = new QLabel("Binary/AppImage:");
-
-    leBinary = new QLineEdit;
-    QPushButton *btnBrowseBinary = new QPushButton("...");
-    hboxBinary->addWidget(leBinary);
-    hboxBinary->addWidget(btnBrowseBinary);
+    piBinary = new PathInput("Binary/AppImage:", true, false,
+                             "Select AppImage or Binary");
 
     // Row Icon: Label, Textinput, Browsebutton
-    QHBoxLayout *hboxIcon = new QHBoxLayout;
-    QLabel *lblIcon = new QLabel("Application Icon:");
+    piIcon = new PathInput("Icon File:", true, false, "Select Icon file", "",
+                           QDir::homePath(),
+                           "Image Files (*.png *.jpg *.bmp *.svg)");
 
-    leIcon = new QLineEdit;
-    QPushButton *btnBrowseIcon = new QPushButton("...");
-    hboxIcon->addWidget(leIcon);
-    hboxIcon->addWidget(btnBrowseIcon);
+    // Group Relocate
+    QVBoxLayout *vboxRelo = new QVBoxLayout;
+    vboxRelo->setContentsMargins(0, 10, 0, 10);
+    gbxRelo = new QGroupBox("Package and relocate AppImage/Binary?");
+    gbxRelo->setCheckable(true);
+    gbxRelo->setChecked(false);
+    gbxRelo->setStyleSheet(
+        "QGroupBox { "
+        "border: 1px solid #555555;"
+        "border-radius: 5px; "
+        "margin-top: 1ex;"
+        "padding: 10px;"
+        "}"
+        "QGroupBox::title {"
+        "subcontrol-origin: margin; }");
 
-    // Row Destination: Textinput, Browsebutton
-    QHBoxLayout *hboxDest = new QHBoxLayout;
-    QLabel *lblDest = new QLabel("Destination:");
+    piDest =
+        new PathInput("Destination:", true, true, "Select destination folder",
+                      QDir::homePath() + "/.local");
+    ckbBinFolder = new QCheckBox("Move Folder containing binary?");
+    piBinFolder = new PathInput("Containing Folder:", true, true,
+                                "Select folder containing the binary");
 
-    leDest = new QLineEdit(destPath->absolutePath());
-    QPushButton *btnBrowseDest = new QPushButton("...");
-    hboxDest->addWidget(leDest);
-    hboxDest->addWidget(btnBrowseDest);
+    piBinFolder->setEnabled(false);
+
+    vboxRelo->addWidget(piDest);
+    vboxRelo->addWidget(ckbBinFolder);
+    vboxRelo->addWidget(piBinFolder);
+
+    gbxRelo->setLayout(vboxRelo);
 
     // Row Category
     QHBoxLayout *hboxCat = new QHBoxLayout;
     QLabel *lblCat = new QLabel("Application Category:");
-    QComboBox *cbCat = new QComboBox;
+    cbCategory = new QComboBox;
     QList<QString> *cbItems = new QList<QString>{
         "AudioVideo", "Audio",    "Video",   "Development", "Education",
         "Game",       "Graphics", "Network", "Office",      "Science",
         "Settings",   "System",   "Utility"};
-    cbCat->addItems(*cbItems);
-    cbCat->setCurrentIndex(cbItems->length() - 1);
+    cbCategory->addItems(*cbItems);
+    cbCategory->setCurrentIndex(cbItems->length() - 1);
 
     hboxCat->addWidget(lblCat);
-    hboxCat->addWidget(cbCat);
+    hboxCat->addWidget(cbCategory);
 
     // Row Go Button
     QHBoxLayout *hboxGo = new QHBoxLayout;
@@ -103,68 +112,69 @@ void MainWindow::createInputs() {
     hboxGo->addStretch(2);
     hboxGo->addWidget(btnGo);
 
-    vboxMain->addWidget(lblBinary);
-    vboxMain->addLayout(hboxBinary);
-    vboxMain->addWidget(lblIcon);
-    vboxMain->addLayout(hboxIcon);
-    vboxMain->addWidget(lblDest);
-    vboxMain->addLayout(hboxDest);
+    vboxMain->addWidget(piBinary);
+    vboxMain->addWidget(piIcon);
+
+    vboxMain->addWidget(gbxRelo);
+
     vboxMain->addLayout(hboxCat);
     vboxMain->addLayout(hboxGo);
     vboxMain->addStretch(0);
 
-    connect(btnBrowseBinary, &QPushButton::clicked, this,
-            &MainWindow::getBinaryPath);
-    connect(btnBrowseIcon, &QPushButton::clicked, this,
-            &MainWindow::getIconPath);
-    connect(btnBrowseDest, &QPushButton::clicked, this,
-            &MainWindow::getDestPath);
-
+    connect(ckbBinFolder, &QCheckBox::stateChanged, this,
+            &MainWindow::enableBinFolder);
     connect(btnGo, &QPushButton::clicked, this, &MainWindow::addApp);
+    connect(piBinary, &PathInput::pathChanged, this,
+            &MainWindow::updateBinFolder);
 
     setCentralWidget(inputWidget);
 }
 
-void MainWindow::getBinaryPath() {
-    QString path = QFileDialog::getOpenFileName(this, "Select Binary/AppImage",
-                                                QDir::homePath());
-    if (path.isNull() == false) {
-        binaryPath->setPath(path);
-        leBinary->setText(path);
-    }
+void MainWindow::updateBinFolder(const QString &path) {
+    QFileInfo pathInfo(path);
+    QString dirPath = pathInfo.absolutePath();
+    piBinFolder->setPath(dirPath);
+    piBinFolder->isDirty = false;
 }
 
-void MainWindow::getIconPath() {
-    QString path =
-        QFileDialog::getOpenFileName(this, "Select Icon file", QDir::homePath(),
-                                     "Image Files (*.png *.jpg *.bmp *.svg)");
-    if (path.isNull() == false) {
-        iconPath->setPath(path);
-        leIcon->setText(path);
-    }
-}
-
-void MainWindow::getDestPath() {
-    QString path = QFileDialog::getExistingDirectory(
-        this, "Select Destination path", QDir::homePath());
-    if (path.isNull() == false) {
-        destPath->setPath(path);
-        leDest->setText(path);
-    }
+void MainWindow::enableBinFolder(int state) {
+    if (state == 2)
+        piBinFolder->setEnabled(true);
+    else
+        piBinFolder->setEnabled(false);
 }
 
 void MainWindow::addApp() {
-    qDebug() << binaryPath->absolutePath();
-    if (binaryPath->absolutePath() == "/" |
-        iconPath->absolutePath() == "/" |
-        linkPath->absolutePath() == "/") {
+    if (this->piBinary->isDirty) {
+        qDebug() << "AppImage/Binary path is wrong or not set";
         return;
+    }
+    if (this->piIcon->isDirty) {
+        qDebug() << "Icon path is wrong or not set";
+        return;
+    }
+    if (this->gbxRelo->isChecked()) {
+        if (this->piDest->isDirty) {
+            qDebug() << "Destination path is wrong or not set";
+            return;
+        }
+        if (this->ckbBinFolder->isChecked() && this->piBinFolder->isDirty) {
+            qDebug() << "Binary folder path is wrong or not set";
+            return;
+        }
     }
 
     // Create a folder for the app
-    QString appname = binaryPath->dirName();
+    QString appname = this->piBinary->getPath()->dirName();
     qDebug() << appname;
 
+    writeDesktopFile();
+}
+
+void MainWindow::writeDesktopFile() {
+    qDebug() << "writing .desktop file";
+
+    QString appname = this->piBinary->getPath()->dirName();
     // Create Desktop file
     QFile desktopFile(QDir::homePath() + "/.local/share/applications/" +
                       appname.toLower() + ".desktop");
@@ -178,9 +188,9 @@ void MainWindow::addApp() {
     out << "[Desktop Entry]\n"
         << "Type=Application\n"
         << "Name=" + appname + "\n"
-        << "Exec=" + binaryPath->absolutePath() + "\n"
-        << "Icon=" + iconPath->absolutePath() + "\n"
-        << "Categories=Utility;\n";
+        << "Exec=" + this->piBinary->getPath()->absolutePath() + "\n"
+        << "Icon=" + this->piIcon->getPath()->absolutePath() + "\n"
+        << "Categories=" + this->cbCategory->currentText() + ";\n";
 
     desktopFile.flush();
     desktopFile.close();

@@ -2,6 +2,7 @@
 #include <QSettings>
 
 #include <QDebug>
+#include <QLoggingCategory>
 
 #include "mainwindow.h"
 
