@@ -12,30 +12,32 @@ class MainWindow : public QMainWindow {
     MainWindow();
 
    public slots:
-    void enableBinFolder(int state);
+    void enableBinDir(int state);
     void addApp();
-    void updateBinFolder(const QString &path);
+    void updateBinDir(const QString &path);
 
 
    private:
     QDir *binaryPath;
     QDir *iconPath;
     QDir *destPath;
+    QDir *binDirPath;
     QDir *linkPath;
 
     QComboBox *cbCategory;
 
     QGroupBox *gbxRelo;
-    QCheckBox *ckbBinFolder;
+    QCheckBox *ckbBinDir;
     PathInput *piBinary;
     PathInput *piIcon;
     PathInput *piDest;
-    PathInput *piBinFolder;
+    PathInput *piBinDir;
 
     void createActions();
     void createInputs();
 
     void writeDesktopFile();
+    bool isFormValid();
 };
 
 #endif  // MAINWINDOW_H

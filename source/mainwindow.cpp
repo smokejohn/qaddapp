@@ -10,6 +10,7 @@ MainWindow::MainWindow() : QMainWindow() {
     binaryPath = new QDir("/");
     iconPath = new QDir("/");
     destPath = new QDir(QDir::homePath() + QDir::separator() + ".local");
+    binDirPath = new QDir("/");
     linkPath = new QDir("/");
 
     resize(850, 400);
@@ -79,15 +80,15 @@ void MainWindow::createInputs() {
     piDest =
         new PathInput("Destination:", true, true, "Select destination folder",
                       QDir::homePath() + "/.local");
-    ckbBinFolder = new QCheckBox("Move Folder containing binary?");
-    piBinFolder = new PathInput("Containing Folder:", true, true,
-                                "Select folder containing the binary");
+    ckbBinDir = new QCheckBox("Move Folder containing binary?");
+    piBinDir = new PathInput("Containing Folder:", true, true,
+                             "Select folder containing the binary");
 
-    piBinFolder->setEnabled(false);
+    piBinDir->setEnabled(false);
 
     vboxRelo->addWidget(piDest);
-    vboxRelo->addWidget(ckbBinFolder);
-    vboxRelo->addWidget(piBinFolder);
+    vboxRelo->addWidget(ckbBinDir);
+    vboxRelo->addWidget(piBinDir);
 
     gbxRelo->setLayout(vboxRelo);
 
@@ -121,60 +122,91 @@ void MainWindow::createInputs() {
     vboxMain->addLayout(hboxGo);
     vboxMain->addStretch(0);
 
-    connect(ckbBinFolder, &QCheckBox::stateChanged, this,
-            &MainWindow::enableBinFolder);
+    connect(ckbBinDir, &QCheckBox::stateChanged, this,
+            &MainWindow::enableBinDir);
     connect(btnGo, &QPushButton::clicked, this, &MainWindow::addApp);
-    connect(piBinary, &PathInput::pathChanged, this,
-            &MainWindow::updateBinFolder);
+    connect(piBinary, &PathInput::pathChanged, this, &MainWindow::updateBinDir);
 
     setCentralWidget(inputWidget);
 }
 
-void MainWindow::updateBinFolder(const QString &path) {
+void MainWindow::updateBinDir(const QString &path) {
     QFileInfo pathInfo(path);
     QString dirPath = pathInfo.absolutePath();
-    piBinFolder->setPath(dirPath);
-    piBinFolder->isDirty = false;
+    piBinDir->setPath(dirPath);
+    piBinDir->isDirty = false;
 }
 
-void MainWindow::enableBinFolder(int state) {
+void MainWindow::enableBinDir(int state) {
     if (state == 2)
-        piBinFolder->setEnabled(true);
+        piBinDir->setEnabled(true);
     else
-        piBinFolder->setEnabled(false);
+        piBinDir->setEnabled(false);
 }
 
 void MainWindow::addApp() {
-    if (this->piBinary->isDirty) {
-        qDebug() << "AppImage/Binary path is wrong or not set";
-        return;
-    }
-    if (this->piIcon->isDirty) {
-        qDebug() << "Icon path is wrong or not set";
-        return;
-    }
-    if (this->gbxRelo->isChecked()) {
-        if (this->piDest->isDirty) {
-            qDebug() << "Destination path is wrong or not set";
-            return;
-        }
-        if (this->ckbBinFolder->isChecked() && this->piBinFolder->isDirty) {
-            qDebug() << "Binary folder path is wrong or not set";
-            return;
+    if (!isFormValid()) return;
+
+    this->binaryPath = this->piBinary->getPath();
+    this->iconPath = this->piIcon->getPath();
+
+    if (gbxRelo->isChecked()) {
+        if (!ckbBinDir->isChecked()) {
+            this->destPath = this->piDest->getPath();
+            // Create a folder for the app
+            QString appname = this->piBinary->getPath()->dirName();
+            QDir basePath(this->destPath->absolutePath() + QDir::separator() +
+                          appname);
+            basePath.mkpath(basePath.absolutePath());
+
+            // move the binary and icon
+            QFileInfo binaryFI(this->binaryPath->absolutePath());
+            QFileInfo iconFI(this->iconPath->absolutePath());
+            QString newBinLoc = basePath.absolutePath() + QDir::separator() +
+                                binaryFI.fileName();
+            QString newIconLoc =
+                basePath.absolutePath() + QDir::separator() + iconFI.fileName();
+
+            // remove existing files
+            if (QFile::exists(newBinLoc)) QFile::remove(newBinLoc);
+            if (QFile::exists(newIconLoc)) QFile::remove(newIconLoc);
+
+            // move the files
+            this->binaryPath->rename(this->binaryPath->absolutePath(),
+                                     newBinLoc);
+            this->iconPath->rename(this->iconPath->absolutePath(), newIconLoc);
+
+            // point QDirs at new location
+            this->binaryPath->setPath(newBinLoc);
+            this->iconPath->setPath(newIconLoc);
+        } else {
+            this->destPath = this->piDest->getPath();
+            this->binDirPath = this->piBinDir->getPath();
+
+            // get relative path of binary to binDir
+            QString relBinToDir = this->binDirPath->relativeFilePath(this->binaryPath->absolutePath());
+            qDebug() << relBinToDir;
+            QString newBinDirLoc = destPath->absolutePath() + QDir::separator() + binDirPath->dirName();
+            qDebug() << newBinDirLoc;
+
+            // TODO: check if icon is in the binDir
+
+            // move the folder
+            this->binDirPath->rename(this->binDirPath->absolutePath(), newBinDirLoc);
+
+
+
+
         }
     }
 
-    // Create a folder for the app
-    QString appname = this->piBinary->getPath()->dirName();
-    qDebug() << appname;
-
-    writeDesktopFile();
+    /* writeDesktopFile(); */
 }
 
 void MainWindow::writeDesktopFile() {
     qDebug() << "writing .desktop file";
 
-    QString appname = this->piBinary->getPath()->dirName();
+    QString appname = this->binaryPath->dirName();
     // Create Desktop file
     QFile desktopFile(QDir::homePath() + "/.local/share/applications/" +
                       appname.toLower() + ".desktop");
@@ -184,14 +216,60 @@ void MainWindow::writeDesktopFile() {
         return;
     }
 
+    QString category = this->cbCategory->currentText();
+
+    if (category == "Audio" | category == "Video")
+        category = "AudioVideo;" + this->cbCategory->currentText();
+
     QTextStream out(&desktopFile);
     out << "[Desktop Entry]\n"
         << "Type=Application\n"
         << "Name=" + appname + "\n"
-        << "Exec=" + this->piBinary->getPath()->absolutePath() + "\n"
-        << "Icon=" + this->piIcon->getPath()->absolutePath() + "\n"
-        << "Categories=" + this->cbCategory->currentText() + ";\n";
+        << "Exec=" + this->binaryPath->absolutePath() + "\n"
+        << "Icon=" + this->iconPath->absolutePath() + "\n"
+        << "Categories=" + category + ";\n";
 
     desktopFile.flush();
     desktopFile.close();
+}
+
+bool MainWindow::isFormValid() {
+    if (this->piBinary->isDirty) {
+        qDebug() << "AppImage/Binary path is wrong or not set";
+        QMessageBox msgBox;
+        msgBox.setText(
+            "The AppImage/Binary file path has not been set or the file "
+            "doesn't exist");
+        msgBox.exec();
+        return false;
+    }
+    if (this->piIcon->isDirty) {
+        qDebug() << "Icon path is wrong or not set";
+        QMessageBox msgBox;
+        msgBox.setText(
+            "The icon file path has not been set or the file doesn't exist");
+        msgBox.exec();
+        return false;
+    }
+    if (this->gbxRelo->isChecked()) {
+        if (this->piDest->isDirty) {
+            qDebug() << "Destination path is wrong or not set";
+            QMessageBox msgBox;
+            msgBox.setText(
+                "The destination folder path has not been set or doesn't "
+                "exist");
+            msgBox.exec();
+            return false;
+        }
+        if (this->ckbBinDir->isChecked() && this->piBinDir->isDirty) {
+            qDebug() << "Binary folder path is wrong or not set";
+            QMessageBox msgBox;
+            msgBox.setText(
+                "The binary folder path has not been set or doesn't exist");
+            msgBox.exec();
+            return false;
+        }
+    }
+
+    return true;
 }
