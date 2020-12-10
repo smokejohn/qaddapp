@@ -1,5 +1,7 @@
 build/
 .cache/
+*.AppImage
+appdir/
 
 # C++ objects and libs
 *.slo
