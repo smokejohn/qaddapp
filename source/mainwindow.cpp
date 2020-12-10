@@ -180,31 +180,40 @@ void MainWindow::addApp() {
             this->binaryPath->setPath(newBinLoc);
             this->iconPath->setPath(newIconLoc);
         } else {
+
             this->destPath = this->piDest->getPath();
             this->binDirPath = this->piBinDir->getPath();
 
             // get relative path of binary to binDir
             QString relBinToDir = this->binDirPath->relativeFilePath(this->binaryPath->absolutePath());
-            qDebug() << relBinToDir;
+
             QString newBinDirLoc = destPath->absolutePath() + QDir::separator() + binDirPath->dirName();
-            qDebug() << newBinDirLoc;
-
-            // TODO: check if icon is in the binDir
-
+            
             // move the folder
             this->binDirPath->rename(this->binDirPath->absolutePath(), newBinDirLoc);
 
+            // check if icon is in the binDir
+            if (QString(iconPath->absolutePath()).contains(binDirPath->absolutePath())){
+                // update the iconPath to reflect the new binDir location
+                QString relIconToDir = this->binDirPath->relativeFilePath(this->iconPath->absolutePath());
+                this->iconPath->setPath(newBinDirLoc + QDir::separator() + relIconToDir);
+            } else { 
+                // move the icon file to the new binDir and update the iconPath
+                QFileInfo iconFI(this->iconPath->absolutePath());
+                QString newIconLoc = newBinDirLoc + QDir::separator() + iconFI.fileName();
+                this->iconPath->rename(this->iconPath->absolutePath(), newIconLoc);
+                this->iconPath->setPath(newIconLoc);
+            }
 
-
+            this->binaryPath->setPath(newBinDirLoc + QDir::separator() + relBinToDir);
 
         }
     }
 
-    /* writeDesktopFile(); */
+    writeDesktopFile();
 }
 
 void MainWindow::writeDesktopFile() {
-    qDebug() << "writing .desktop file";
 
     QString appname = this->binaryPath->dirName();
     // Create Desktop file
