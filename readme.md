@@ -6,7 +6,7 @@ create a .desktop file and places the applications in a location of your choice.
 It can also create symlinks to a folder in your $PATH for you so you can execute
 the app via commandline from any location.
 
->> GUI Screenshot here soon <<
+![QAddApp GUI Screenshot](resources/qaddapp_gui_screenshot.png?raw=true)
 
 ## Installation
 Get the latest AppImage from the [Releases Page](https://github.com/smokejohn/qaddapp/releases).
