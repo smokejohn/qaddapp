@@ -32,11 +32,13 @@ void QaaPathEdit::dropEvent(QDropEvent *event) {
     }
 }
 
-PathInput::PathInput(QString label, bool markDirty, bool folder,
-                     const QString &caption, const QString &defaultPath,
-                     const QString &dir, const QString &filter)
+PathInput::PathInput(QString label, bool markDirty, bool isSaveFile,
+                     bool folder, const QString &caption,
+                     const QString &defaultPath, const QString &dir,
+                     const QString &filter)
     : QWidget(), caption(caption), dir(dir), filter(filter) {
     // initalize elements
+    this->isSaveFile = isSaveFile;
     this->isDirty = markDirty;
     this->folder = folder;
     this->path = new QDir("/");
@@ -65,34 +67,58 @@ PathInput::PathInput(QString label, bool markDirty, bool folder,
     this->setPath(defaultPath);
 
     setLayout(hboxMain);
+
 }
 
 void PathInput::setPath(const QString &path) {
     QFileInfo inputPath(path);
 
+    if (this->isSaveFile) {
+        this->path->setPath(path);
+        emit pathChanged(path);
+        this->pePath->setText(path);
+        this->isDirty = false;
+    }
+
     if (inputPath.exists()) {
-    this->path->setPath(path);
+        this->path->setPath(path);
 
-    emit pathChanged(path);
-    // update lineedit
-    this->pePath->setText(path);
+        emit pathChanged(path);
+        // update lineedit
+        this->pePath->setText(path);
 
-    this->isDirty = false;
+        this->isDirty = false;
     }
 }
 
 void PathInput::validateInput(const QString &path) {
-    QFileInfo pathInput = path;
-    if (!pathInput.exists()) {
-        QPalette badInput;
-        badInput.setColor(QPalette::Base, Qt::darkRed);
-        this->pePath->setPalette(badInput);
-        this->isDirty = true;
+    QFileInfo pathInput = QFileInfo(path);
+
+    if (isSaveFile) {
+        QDir dirInput = QDir(pathInput.absolutePath());
+        if (!dirInput.exists()) {
+            QPalette badInput;
+            badInput.setColor(QPalette::Base, Qt::darkRed);
+            this->pePath->setPalette(badInput);
+            this->isDirty = true;
+        } else {
+            QPalette goodInput;
+            pePath->setPalette(goodInput);
+            this->setPath(pePath->text());
+            this->isDirty = false;
+        }
     } else {
-        QPalette goodInput;
-        pePath->setPalette(goodInput);
-        this->setPath(pePath->text());
-        this->isDirty = false;
+        if (!pathInput.exists()) {
+            QPalette badInput;
+            badInput.setColor(QPalette::Base, Qt::darkRed);
+            this->pePath->setPalette(badInput);
+            this->isDirty = true;
+        } else {
+            QPalette goodInput;
+            pePath->setPalette(goodInput);
+            this->setPath(pePath->text());
+            this->isDirty = false;
+        }
     }
 }
 
@@ -101,15 +127,27 @@ void PathInput::setPathDialog() {
         QString path =
             QFileDialog::getExistingDirectory(this, this->caption, this->dir);
         if (path.isNull() == false) {
+            QPalette goodInput;
+            pePath->setPalette(goodInput);
             this->setPath(path);
         }
+    } else if (this->isSaveFile) {
+        QString path = QFileDialog::getSaveFileName(this, this->caption, this->dir);
+        if (path.isNull() == false) {
+            QPalette goodInput;
+            pePath->setPalette(goodInput);
+            this->setPath(path);
+        }
+
     } else {
         QString path = QFileDialog::getOpenFileName(this, this->caption,
                                                     this->dir, this->filter);
         if (path.isNull() == false) {
+            QPalette goodInput;
+            pePath->setPalette(goodInput);
             this->setPath(path);
         }
     }
 }
 
-QDir* PathInput::getPath() { return this->path; }
+QDir *PathInput::getPath() { return this->path; }

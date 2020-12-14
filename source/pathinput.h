@@ -21,14 +21,14 @@ class PathInput : public QWidget {
     Q_OBJECT;
 
    public:
-    PathInput(QString label, bool markDirty, bool folder = false,
+    PathInput(QString label, bool markDirty, bool isSaveFile = false, bool folder = false,
               const QString &caption = "Select a file",
               const QString &defaultPath = QString(),
               const QString &dir = QDir::homePath(),
               const QString &filter = QString());
 
     bool isDirty;
-    QDir* getPath();
+    QDir *getPath();
 
    public slots:
     void setPath(const QString &path);
@@ -39,6 +39,7 @@ class PathInput : public QWidget {
     void pathChanged(const QString &path);
 
    private:
+    bool isSaveFile;
     bool folder;
     QString caption;
     QString dir;

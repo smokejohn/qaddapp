@@ -39,6 +39,8 @@ void MainWindow::createActions() {
     QAction *aboutAct = new QAction("&About", this);
     aboutAct->setStatusTip("About QAddApp");
 
+    connect(aboutAct, &QAction::triggered, this, &MainWindow::showAbout);
+
     // adding quit menuitem to menubar
     fileMenu->addAction(quitAct);
     aboutMenu->addAction(aboutAct);
@@ -53,12 +55,12 @@ void MainWindow::createInputs() {
     vboxMain->setMargin(15);
 
     // Row Binary: Label, Textinput, Browsebutton
-    piBinary = new PathInput("Binary/AppImage:", true, false,
+    piBinary = new PathInput("Binary/AppImage:", true, false, false,
                              "Select AppImage or Binary");
 
     // Row Icon: Label, Textinput, Browsebutton
-    piIcon = new PathInput("Icon File:", true, false, "Select Icon file", "",
-                           QDir::homePath(),
+    piIcon = new PathInput("Icon File:", true, false, false, "Select Icon file",
+                           "", QDir::homePath(),
                            "Image Files (*.png *.jpg *.bmp *.svg)");
 
     // Group Relocate
@@ -78,10 +80,10 @@ void MainWindow::createInputs() {
         "subcontrol-origin: margin; }");
 
     piDest =
-        new PathInput("Destination:", true, true, "Select destination folder",
-                      QDir::homePath() + "/.local");
+        new PathInput("Destination:", false, false, true,
+                      "Select destination path", QDir::homePath() + "/.local");
     ckbBinDir = new QCheckBox("Move Folder containing binary?");
-    piBinDir = new PathInput("Containing Folder:", true, true,
+    piBinDir = new PathInput("Containing Folder:", true, false, true,
                              "Select folder containing the binary");
 
     piBinDir->setEnabled(false);
@@ -91,6 +93,27 @@ void MainWindow::createInputs() {
     vboxRelo->addWidget(piBinDir);
 
     gbxRelo->setLayout(vboxRelo);
+
+    QVBoxLayout *vboxLink = new QVBoxLayout;
+    ckbLinkDir = new QCheckBox("Create a Symlink to the binary?");
+    piLinkDir = new PathInput("Symlink path:", true, true, false,
+                              "Specify symlink location and name");
+    piLinkDir->setEnabled(false);
+    vboxLink->addWidget(ckbLinkDir);
+    vboxLink->addWidget(piLinkDir);
+
+    // ===================
+    // Desktop File Inputs
+    // ===================
+
+    // Appname
+
+    QHBoxLayout *hboxAppname = new QHBoxLayout;
+    QLabel *lblAppname = new QLabel("Application Name:");
+    leName = new QLineEdit;
+
+    hboxAppname->addWidget(lblAppname, 2);
+    hboxAppname->addWidget(leName, 1);
 
     // Row Category
     QHBoxLayout *hboxCat = new QHBoxLayout;
@@ -103,8 +126,8 @@ void MainWindow::createInputs() {
     cbCategory->addItems(*cbItems);
     cbCategory->setCurrentIndex(cbItems->length() - 1);
 
-    hboxCat->addWidget(lblCat);
-    hboxCat->addWidget(cbCategory);
+    hboxCat->addWidget(lblCat, 2);
+    hboxCat->addWidget(cbCategory, 1);
 
     // Row Go Button
     QHBoxLayout *hboxGo = new QHBoxLayout;
@@ -115,17 +138,25 @@ void MainWindow::createInputs() {
 
     vboxMain->addWidget(piBinary);
     vboxMain->addWidget(piIcon);
+    vboxMain->addLayout(vboxLink);
 
     vboxMain->addWidget(gbxRelo);
 
+    vboxMain->addLayout(hboxAppname);
     vboxMain->addLayout(hboxCat);
     vboxMain->addLayout(hboxGo);
     vboxMain->addStretch(0);
 
+    connect(ckbLinkDir, &QCheckBox::stateChanged, this,
+            &MainWindow::enableLinkDir);
     connect(ckbBinDir, &QCheckBox::stateChanged, this,
             &MainWindow::enableBinDir);
     connect(btnGo, &QPushButton::clicked, this, &MainWindow::addApp);
     connect(piBinary, &PathInput::pathChanged, this, &MainWindow::updateBinDir);
+    connect(piBinary, &PathInput::pathChanged, this,
+            &MainWindow::updateAppName);
+    connect(piBinary, &PathInput::pathChanged, this,
+            &MainWindow::updateLinkPath);
 
     setCentralWidget(inputWidget);
 }
@@ -133,8 +164,21 @@ void MainWindow::createInputs() {
 void MainWindow::updateBinDir(const QString &path) {
     QFileInfo pathInfo(path);
     QString dirPath = pathInfo.absolutePath();
-    piBinDir->setPath(dirPath);
-    piBinDir->isDirty = false;
+    this->piBinDir->setPath(dirPath);
+    this->piBinDir->isDirty = false;
+}
+
+void MainWindow::updateAppName(const QString &path) {
+    QFileInfo pathInfo(path);
+    QString appName = pathInfo.fileName();
+    appName = appName.replace(0, 1, appName[0].toUpper());
+    this->leName->setText(appName);
+}
+
+void MainWindow::updateLinkPath(const QString &path) {
+    QFileInfo pathInfo(path);
+    QString appName = pathInfo.fileName();
+    this->piLinkDir->setPath(QDir::homePath() + "/.local/bin/" + appName);
 }
 
 void MainWindow::enableBinDir(int state) {
@@ -144,11 +188,22 @@ void MainWindow::enableBinDir(int state) {
         piBinDir->setEnabled(false);
 }
 
+void MainWindow::enableLinkDir(int state) {
+    if (state == 2)
+        piLinkDir->setEnabled(true);
+    else
+        piLinkDir->setEnabled(false);
+}
+
 void MainWindow::addApp() {
     if (!isFormValid()) return;
 
     this->binaryPath = this->piBinary->getPath();
     this->iconPath = this->piIcon->getPath();
+
+    if (ckbLinkDir->isChecked()) {
+        this->createSymlink();
+    }
 
     if (gbxRelo->isChecked()) {
         if (!ckbBinDir->isChecked()) {
@@ -179,34 +234,50 @@ void MainWindow::addApp() {
             // point QDirs at new location
             this->binaryPath->setPath(newBinLoc);
             this->iconPath->setPath(newIconLoc);
-        } else {
 
+            if (ckbLinkDir->isChecked()) {
+                this->createSymlink();
+            }
+
+        } else {
             this->destPath = this->piDest->getPath();
             this->binDirPath = this->piBinDir->getPath();
 
             // get relative path of binary to binDir
-            QString relBinToDir = this->binDirPath->relativeFilePath(this->binaryPath->absolutePath());
+            QString relBinToDir = this->binDirPath->relativeFilePath(
+                this->binaryPath->absolutePath());
 
-            QString newBinDirLoc = destPath->absolutePath() + QDir::separator() + binDirPath->dirName();
-            
+            QString newBinDirLoc = destPath->absolutePath() +
+                                   QDir::separator() + binDirPath->dirName();
+
             // move the folder
-            this->binDirPath->rename(this->binDirPath->absolutePath(), newBinDirLoc);
+            this->binDirPath->rename(this->binDirPath->absolutePath(),
+                                     newBinDirLoc);
 
             // check if icon is in the binDir
-            if (QString(iconPath->absolutePath()).contains(binDirPath->absolutePath())){
+            if (QString(iconPath->absolutePath())
+                    .contains(binDirPath->absolutePath())) {
                 // update the iconPath to reflect the new binDir location
-                QString relIconToDir = this->binDirPath->relativeFilePath(this->iconPath->absolutePath());
-                this->iconPath->setPath(newBinDirLoc + QDir::separator() + relIconToDir);
-            } else { 
+                QString relIconToDir = this->binDirPath->relativeFilePath(
+                    this->iconPath->absolutePath());
+                this->iconPath->setPath(newBinDirLoc + QDir::separator() +
+                                        relIconToDir);
+            } else {
                 // move the icon file to the new binDir and update the iconPath
                 QFileInfo iconFI(this->iconPath->absolutePath());
-                QString newIconLoc = newBinDirLoc + QDir::separator() + iconFI.fileName();
-                this->iconPath->rename(this->iconPath->absolutePath(), newIconLoc);
+                QString newIconLoc =
+                    newBinDirLoc + QDir::separator() + iconFI.fileName();
+                this->iconPath->rename(this->iconPath->absolutePath(),
+                                       newIconLoc);
                 this->iconPath->setPath(newIconLoc);
             }
 
-            this->binaryPath->setPath(newBinDirLoc + QDir::separator() + relBinToDir);
+            this->binaryPath->setPath(newBinDirLoc + QDir::separator() +
+                                      relBinToDir);
 
+            if (ckbLinkDir->isChecked()) {
+                this->createSymlink();
+            }
         }
     }
 
@@ -214,8 +285,8 @@ void MainWindow::addApp() {
 }
 
 void MainWindow::writeDesktopFile() {
-
-    QString appname = this->binaryPath->dirName();
+    /* QString appname = this->binaryPath->dirName(); */
+    QString appname = this->leName->text();
     // Create Desktop file
     QFile desktopFile(QDir::homePath() + "/.local/share/applications/" +
                       appname.toLower() + ".desktop");
@@ -242,6 +313,18 @@ void MainWindow::writeDesktopFile() {
     desktopFile.close();
 }
 
+void MainWindow::createSymlink() {
+    this->linkPath = this->piLinkDir->getPath();
+    QFileInfo linkFI = QFileInfo(this->linkPath->absolutePath());
+
+    if (linkFI.exists()) {
+        QFile::remove(this->linkPath->absolutePath());
+    }
+
+    QFile::link(this->binaryPath->absolutePath(),
+                this->linkPath->absolutePath());
+}
+
 bool MainWindow::isFormValid() {
     if (this->piBinary->isDirty) {
         qDebug() << "AppImage/Binary path is wrong or not set";
@@ -257,6 +340,14 @@ bool MainWindow::isFormValid() {
         QMessageBox msgBox;
         msgBox.setText(
             "The icon file path has not been set or the file doesn't exist");
+        msgBox.exec();
+        return false;
+    }
+    if (this->piLinkDir->isDirty) {
+        QMessageBox msgBox;
+        msgBox.setText(
+            "The symlink filepath has not been set or the folder doesn't "
+            "exist");
         msgBox.exec();
         return false;
     }
@@ -281,4 +372,12 @@ bool MainWindow::isFormValid() {
     }
 
     return true;
+}
+
+void MainWindow::showAbout() {
+    QMessageBox::about(
+        this, "QAddApp",
+        "<h2>QAddApp</h2>\n"
+        "Open source Qt5 Gui Application that helps you add AppImages and "
+        "Binary packages to your desktop environment");
 }

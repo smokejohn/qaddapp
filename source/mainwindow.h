@@ -13,9 +13,12 @@ class MainWindow : public QMainWindow {
 
    public slots:
     void enableBinDir(int state);
+    void enableLinkDir(int state);
     void addApp();
     void updateBinDir(const QString &path);
-
+    void updateAppName(const QString &path);
+    void updateLinkPath(const QString &path);
+    void showAbout();
 
    private:
     QDir *binaryPath;
@@ -26,17 +29,22 @@ class MainWindow : public QMainWindow {
 
     QComboBox *cbCategory;
 
-    QGroupBox *gbxRelo;
-    QCheckBox *ckbBinDir;
     PathInput *piBinary;
     PathInput *piIcon;
+    QGroupBox *gbxRelo;
+    QCheckBox *ckbBinDir;
+    QCheckBox *ckbLinkDir;
     PathInput *piDest;
     PathInput *piBinDir;
+    PathInput *piLinkDir;
+
+    QLineEdit *leName;
 
     void createActions();
     void createInputs();
 
     void writeDesktopFile();
+    void createSymlink();
     bool isFormValid();
 };
 
