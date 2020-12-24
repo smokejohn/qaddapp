@@ -67,7 +67,6 @@ PathInput::PathInput(QString label, bool markDirty, bool isSaveFile,
     this->setPath(defaultPath);
 
     setLayout(hboxMain);
-
 }
 
 void PathInput::setPath(const QString &path) {
@@ -95,6 +94,8 @@ void PathInput::validateInput(const QString &path) {
     QFileInfo pathInput = QFileInfo(path);
 
     if (isSaveFile) {
+        // TODO: maybe test for write access here?
+        /*
         QDir dirInput = QDir(pathInput.absolutePath());
         if (!dirInput.exists()) {
             QPalette badInput;
@@ -102,11 +103,12 @@ void PathInput::validateInput(const QString &path) {
             this->pePath->setPalette(badInput);
             this->isDirty = true;
         } else {
+            */
             QPalette goodInput;
             pePath->setPalette(goodInput);
             this->setPath(pePath->text());
             this->isDirty = false;
-        }
+        //}
     } else {
         if (!pathInput.exists()) {
             QPalette badInput;
