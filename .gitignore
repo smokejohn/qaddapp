@@ -2,6 +2,7 @@ build/
 .cache/
 *.AppImage
 appdir/
+.clangd/
 
 # C++ objects and libs
 *.slo
