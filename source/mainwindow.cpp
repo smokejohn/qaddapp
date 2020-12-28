@@ -201,7 +201,7 @@ void MainWindow::addApp() {
     this->binaryPath = this->piBinary->getPath();
     this->iconPath = this->piIcon->getPath();
 
-    if (ckbLinkDir->isChecked()) {
+    if (!gbxRelo->isChecked() && ckbLinkDir->isChecked()) {
         this->createSymlink();
     }
 
@@ -317,9 +317,7 @@ void MainWindow::createSymlink() {
     this->linkPath = this->piLinkDir->getPath();
     QFileInfo linkFI = QFileInfo(this->linkPath->absolutePath());
 
-    if (linkFI.exists()) {
-        QFile::remove(this->linkPath->absolutePath());
-    }
+    QFile::remove(this->linkPath->absolutePath());
 
     QFile::link(this->binaryPath->absolutePath(),
                 this->linkPath->absolutePath());
